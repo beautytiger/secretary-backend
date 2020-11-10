@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-front
+  labels:
+    app: ai-front
+spec:
+  selector:
+    matchLabels:
+      app: ai-front
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ai-front
+    spec:
+      containers:
+        - name: ai-front
+          image: 10.3.141.1:5000/ai/secretary:front
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-front
+spec:
+  selector:
+    app: ai-front
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+  type: NodePort

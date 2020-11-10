@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-backend
+  labels:
+    app: ai-backend
+spec:
+  selector:
+    matchLabels:
+      app: ai-backend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ai-backend
+    spec:
+      containers:
+        - name: ai-backend
+          image: 10.3.141.1:5000/ai/secretary:backend
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: CAMURL
+              value: "http://10.3.141.5:8080/?action=snapshot"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-backend
+spec:
+  selector:
+    app: ai-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: NodePort
