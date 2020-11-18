@@ -1,6 +1,7 @@
 package meeting
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,14 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var meetingTopic = "豆花甜咸之争"
-var meetingContent = `第一行
-第二行
-第三行
-第四行
-`
-var meetingStart JSONTime = JSONTime{time.Now()}
-var meetingEnd JSONTime = JSONTime{time.Now()}
 var cameraURL string
 
 func init() {
@@ -47,7 +40,7 @@ func (t JSONDuration) MarshalJSON() ([]byte, error) {
 }
 
 func getDuration() JSONDuration {
-	dur := meetingEnd.Time.Sub(meetingEnd.Time)
+	dur := meetingLog.End.Sub(meetingLog.Start)
 	intMinute := dur / time.Minute
 	if intMinute < 1 {
 		dur = time.Minute
@@ -77,9 +70,9 @@ func List(c *gin.Context) {
 	var meetings = []Info{
 		{
 			1,
-			meetingStart,
-			meetingEnd,
-			meetingTopic,
+			JSONTime{meetingLog.Start},
+			JSONTime{meetingLog.End},
+			meetingLog.Topic,
 			getDuration(),
 			"张三",
 			4,
@@ -95,9 +88,9 @@ func Detail(c *gin.Context) {
 	log.Printf("meeting id: %s\n", id)
 	var meetings = Info{
 		1,
-		meetingStart,
-		meetingEnd,
-		meetingTopic,
+		JSONTime{meetingLog.Start},
+		JSONTime{meetingLog.End},
+		meetingLog.Topic,
 		getDuration(),
 		"张三",
 		4,
@@ -118,8 +111,10 @@ func Add(c *gin.Context) {
 		})
 		return
 	}
-	meetingTopic = info.Topic
-	meetingStart = JSONTime{time.Now()}
+	meetingLog = Meeting{}
+	meetingLog.Topic = info.Topic
+	meetingLog.Start = time.Now()
+	// 重置会议记录
 	getImage()
 	c.JSON(200, map[string]string{
 		"msg": "请求成功",
@@ -128,7 +123,8 @@ func Add(c *gin.Context) {
 }
 
 func getImage() {
-	resp, err := http.Get(cameraURL)
+	cli := http.Client{Timeout: time.Second*5 }
+	resp, err := cli.Get(cameraURL)
 	if err != nil {
 		log.Println(err.Error())
 		return
@@ -139,7 +135,7 @@ func getImage() {
 		log.Println(err.Error())
 		return
 	}
-	ioutil.WriteFile("/tmp/meeting.jpg", data, 0644)
+	ioutil.WriteFile("./meeting.jpg", data, 0644)
 	return
 }
 
@@ -152,25 +148,124 @@ func GetRecords(c *gin.Context) {
 	id := c.Param("id")
 	log.Printf("meeting id: %s\n", id)
 	var logs = Log{
-		meetingContent,
+		meetingLog.GetLog(),
 	}
 	c.JSON(200, logs)
 	return
 }
 
+// 废弃
 func PutRecords(c *gin.Context) {
 	id := c.Param("id")
 	log.Printf("meeting id: %s\n", id)
+	meetingLog.End = time.Now()
+	c.JSON(200, map[string]string{
+		"msg": "请求成功",
+	})
+	return
+}
 
-	var log Log
-	if err := c.BindJSON(&log); err != nil || log.Text == "" {
+type Speaker struct {
+	Name string
+	Time int
+}
+
+type Words struct {
+	Word string
+	Time int
+}
+
+type Meeting struct {
+	Topic string
+	Start time.Time
+	End time.Time
+	Log string
+	Speaker []Speaker
+	Words []Words
+}
+
+func (m *Meeting)GetLog() string {
+	m.Log = ""
+	for _, w := range m.Words {
+		name := m.GetSpeaker(w.Time)
+		m.Log = fmt.Sprintf("%s\n%s: %s", m.Log, name, w.Word)
+	}
+	return m.Log
+}
+
+func (m *Meeting)GetSpeaker(t int) string {
+	var i int
+	for index, s := range m.Speaker {
+		if t >= s.Time {
+			i = index - 1
+			continue
+		}
+		i = index - 1
+		break
+	}
+	if i < 0 {
+		return "未知"
+	}
+	return m.Speaker[i].Name
+}
+
+// 会议记录
+var meetingLog = Meeting{}
+
+func PersistentLogToDisk() {
+	data, err := json.Marshal(meetingLog)
+	if err != nil {
+		log.Println(err)
+	}
+	err = ioutil.WriteFile("meeting.data", data, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func LoadLogFromDisk() {
+	data, err := ioutil.ReadFile("meeting.data")
+	if err != nil {
+		log.Println(err)
+	}
+	err = json.Unmarshal(data, &meetingLog)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func PutSpeaker(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("meeting id: %s\n", id)
+
+	var sp Speaker
+	if err := c.BindJSON(&sp); err != nil || sp.Name == "" {
 		c.JSON(400, map[string]string{
-			"msg": "请求错误，会议内容不能为空",
+			"msg": "演讲人姓名不能为空",
 		})
 		return
 	}
-	meetingContent = log.Text
-	meetingEnd = JSONTime{time.Now()}
+	meetingLog.Speaker = append(meetingLog.Speaker, sp)
+	meetingLog.End = time.Now()
+	c.JSON(200, map[string]string{
+		"msg": "请求成功",
+	})
+	return
+}
+
+func PutWords(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("meeting id: %s\n", id)
+
+	var words Words
+	if err := c.BindJSON(&words); err != nil || words.Word == "" {
+		c.JSON(400, map[string]string{
+			"msg": "演讲内容不能为空",
+		})
+		return
+	}
+	meetingLog.Words = append(meetingLog.Words, words)
+	meetingLog.End = time.Now()
 	c.JSON(200, map[string]string{
 		"msg": "请求成功",
 	})

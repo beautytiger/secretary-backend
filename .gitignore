@@ -1,0 +1,7 @@
+front/front-repo/
+build/backend*
+*.tgz
+*.jpg
+*.data
+main
+dist/

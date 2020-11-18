@@ -14,7 +14,7 @@ var clientset *kubernetes.Clientset
 
 func GetClient() *kubernetes.Clientset {
 	var once = sync.Once{}
-	once.Do(func(){
+	once.Do(func() {
 		var err error
 		var kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
 		config, err := rest.InClusterConfig()
