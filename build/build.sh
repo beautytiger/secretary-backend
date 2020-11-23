@@ -12,6 +12,7 @@ pushd ..
 GOOS=linux GOARCH=${platform} go build -o build/backend-${platform}
 popd
 
-image="10.33.132.23:5000/ai/secretary:backend"
+#image="192.168.168.11:5000/ai/secretary:backend"
+image="10.3.141.1:5000/ai/secretary:backend"
 docker build -t ${image} .
 docker push ${image}

@@ -3,6 +3,7 @@ package meeting
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -115,7 +116,7 @@ func Add(c *gin.Context) {
 	meetingLog.Topic = info.Topic
 	meetingLog.Start = time.Now()
 	// 重置会议记录
-	getImage()
+	//getImage()
 	c.JSON(200, map[string]string{
 		"msg": "请求成功",
 	})
@@ -151,6 +152,34 @@ func GetRecords(c *gin.Context) {
 		meetingLog.GetLog(),
 	}
 	c.JSON(200, logs)
+	return
+}
+
+// 设置会议图片
+func PutImage(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("meeting id: %s\n", id)
+	file, header , err := c.Request.FormFile("attach")
+	if err != nil {
+		c.JSON(400, map[string]string{
+			"msg": "请求错误",
+		})
+		return
+	}
+	//filename := header.Filename
+	log.Println(header.Filename)
+	out, err := os.Create("./meeting.jpg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+	_, err = io.Copy(out, file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.JSON(200, map[string]string{
+		"msg": "请求成功",
+	})
 	return
 }
 

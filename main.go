@@ -30,6 +30,7 @@ func main() {
 	meet.GET("/:id/image", func(c *gin.Context) {
 		c.File("./meeting.jpg")
 	})
+	meet.POST("/:id/image", meeting.PutImage)
 	meet.POST("/:id/record", meeting.PutRecords)
 	meet.POST("/:id/speaker", meeting.PutSpeaker)
 	meet.POST("/:id/words", meeting.PutWords)
